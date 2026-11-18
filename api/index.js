@@ -1,9 +1,5 @@
-// ==========================================
-// FILE 1: api/index.js (Update API Lo)
-// ==========================================
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { Readable } = require('stream');
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const HEAD = { "user-agent": UA, accept: "text/html,application/xhtml+xml,*/*", "accept-language": "en-US,en;q=0.9" };
@@ -56,51 +52,27 @@ const pickMedia = (pin, $) => {
 };
 
 module.exports = async (req, res) => {
+  // CORS Setup
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
-  // ==========================================
-  // ENDPOINT /api/download (FORCE DOWNLOAD)
-  // ==========================================
-  if (req.url.startsWith('/api/download')) {
-    const fileUrl = req.query.url;
-    const filename = req.query.filename || 'pinterest_media';
-    
-    if (!fileUrl) return res.status(400).send("Missing url");
-
-    try {
-      const response = await axios({
-        method: 'GET',
-        url: fileUrl,
-        responseType: 'stream',
-        headers: { "User-Agent": UA }
-      });
-
-      // Set header biar browser maksa download
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
-      
-      // Stream file-nya ke client
-      response.data.pipe(res);
-      return;
-    } catch (err) {
-      return res.status(500).send("Gagal download file: " + err.message);
-    }
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  // ==========================================
-  // ENDPOINT /api (SCRAPER PINTEREST)
-  // ==========================================
   const start = Date.now();
   let link = String(req.query.url || "").trim();
   
-  if (!link) return res.status(400).json({ status: false, error: "Parameter 'url' wajib diisi." });
+  if (!link) {
+    return res.status(400).json({ status: false, error: "Parameter 'url' wajib diisi." });
+  }
+
   if (!/^https?:\/\//i.test(link)) link = "https://" + link;
-  if (!HOST.test(link)) return res.status(400).json({ status: false, error: "URL Pinterest tidak valid." });
+  if (!HOST.test(link)) {
+    return res.status(400).json({ status: false, error: "URL Pinterest tidak valid." });
+  }
 
   try {
     let id = (link.match(PINID) || [])[1];
@@ -124,7 +96,7 @@ module.exports = async (req, res) => {
     const pin = readPin(html);
     const media = pickMedia(pin, $);
     
-    if (!media) throw new Error("Media tidak ditemukan.");
+    if (!media) throw new Error("Media tidak ditemukan (pin privat atau tidak tersedia).");
 
     const title = String(pin?.title || pin?.gridTitle || pin?.seoTitle || $('meta[property="og:title"]').attr("content") || "").trim();
     
