@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "name": "pinterest-api",
+  "rewrites": [
+    { "source": "/api", "destination": "/api/index.js" }
+  ]
+}
